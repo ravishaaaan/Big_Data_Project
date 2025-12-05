@@ -12,6 +12,7 @@ import matplotlib
 matplotlib.use('Agg')  # Use non-interactive backend
 import matplotlib.pyplot as plt
 import seaborn as sns
+from matplotlib.backends.backend_pdf import PdfPages
 from database.db_config import get_connection, query
 from datetime import datetime, timezone
 import json
@@ -157,18 +158,60 @@ def generate_visualizations():
     df['is_fraud'] = df['fraud_type'].notnull()
     fraud_by_cat = df[df['is_fraud']].groupby('merchant_category').size().reset_index(name='count')
     
-    # Bar chart
-    plt.figure(figsize=(8,6))
-    sns.barplot(data=fraud_by_cat, x='merchant_category', y='count')
-    plt.xticks(rotation=45)
-    plt.title('Fraud Alerts by Merchant Category')
-    plt.ylabel('Number of Fraud Alerts')
-    plt.tight_layout()
     ts = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')
-    bar_path = os.path.join(OUTPUT_DIR, f'fraud_by_category_{ts}.png')
-    plt.savefig(bar_path)
+    
+    # Bar chart - Fraud count by merchant category
+    plt.figure(figsize=(10, 6))
+    sns.barplot(data=fraud_by_cat, x='merchant_category', y='count', palette='viridis')
+    plt.xticks(rotation=45, ha='right')
+    plt.title('Fraud Alerts by Merchant Category', fontsize=14, fontweight='bold')
+    plt.ylabel('Number of Fraud Alerts')
+    plt.xlabel('Merchant Category')
+    plt.tight_layout()
+    bar_path = os.path.join(OUTPUT_DIR, f'fraud_by_category_bar_{ts}.png')
+    plt.savefig(bar_path, dpi=300)
     plt.close()
     print(f'✓ Saved bar chart to {bar_path}')
+    
+    # Pie chart - Fraud percentage distribution by type
+    if 'fraud_type' in df.columns and df['fraud_type'].notnull().any():
+        fraud_types = df[df['fraud_type'].notnull()]['fraud_type'].value_counts()
+        plt.figure(figsize=(8, 8))
+        colors = sns.color_palette('pastel')[0:len(fraud_types)]
+        plt.pie(fraud_types.values, labels=fraud_types.index, autopct='%1.1f%%',
+                startangle=90, colors=colors)
+        plt.title('Fraud Type Distribution', fontsize=14, fontweight='bold')
+        plt.axis('equal')
+        plt.tight_layout()
+        pie_path = os.path.join(OUTPUT_DIR, f'fraud_type_distribution_{ts}.png')
+        plt.savefig(pie_path, dpi=300)
+        plt.close()
+        print(f'✓ Saved pie chart to {pie_path}')
+    
+    # Time series - Fraud attempts over time
+    if 'event_time' in df.columns and pd.api.types.is_datetime64_any_dtype(df['event_time']):
+        # Convert event_time to datetime if needed
+        if not pd.api.types.is_datetime64_any_dtype(df['event_time']):
+            df['event_time'] = pd.to_datetime(df['event_time'])
+        
+        # Resample fraud events by hour
+        fraud_df = df[df['is_fraud']].copy()
+        if not fraud_df.empty:
+            fraud_df.set_index('event_time', inplace=True)
+            fraud_by_time = fraud_df.resample('H').size()
+            
+            plt.figure(figsize=(12, 6))
+            plt.plot(fraud_by_time.index, fraud_by_time.values, marker='o', linestyle='-', color='red')
+            plt.title('Fraud Attempts Over Time (Hourly)', fontsize=14, fontweight='bold')
+            plt.ylabel('Number of Fraud Attempts')
+            plt.xlabel('Time')
+            plt.xticks(rotation=45, ha='right')
+            plt.grid(True, alpha=0.3)
+            plt.tight_layout()
+            timeseries_path = os.path.join(OUTPUT_DIR, f'fraud_timeseries_{ts}.png')
+            plt.savefig(timeseries_path, dpi=300)
+            plt.close()
+            print(f'✓ Saved time series chart to {timeseries_path}')
 
     # CSV
     csv_path = os.path.join(OUTPUT_DIR, f'fraud_summary_{ts}.csv')
@@ -267,6 +310,85 @@ def save_report_json(filename='fraud_analysis_report.json'):
     return filepath
 
 
+def generate_pdf_report():
+    """Generate comprehensive PDF report with visualizations"""
+    ts = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')
+    pdf_path = os.path.join(OUTPUT_DIR, f'fraud_analysis_report_{ts}.pdf')
+    
+    # Get all statistics
+    tx_stats = get_transaction_statistics()
+    fraud_stats = get_fraud_statistics()
+    val_stats = get_validation_statistics()
+    perf_stats = get_system_performance()
+    
+    with PdfPages(pdf_path) as pdf:
+        # Page 1: Summary Statistics
+        fig = plt.figure(figsize=(11, 8.5))
+        fig.suptitle('Fraud Detection System - Analysis Report', fontsize=16, fontweight='bold')
+        
+        ax = fig.add_subplot(111)
+        ax.axis('off')
+        
+        report_text = f"""
+Generated: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}
+
+TRANSACTION STATISTICS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Total Transactions: {tx_stats['total_transactions']:,}
+Total Transaction Amount: ${tx_stats['total_transaction_amount']:,.2f}
+
+FRAUD DETECTION STATISTICS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Total Fraud Alerts: {fraud_stats['total_fraud_alerts']:,}
+Fraud Rate: {val_stats['fraud_rate_percent']:.2f}%
+
+VALIDATION & RECONCILIATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Validated Transactions: {val_stats['validated_transactions']:,}
+Validated Amount: ${val_stats['validated_amount']:,.2f}
+
+SYSTEM PERFORMANCE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Average Processing Latency: {perf_stats['avg_processing_latency_seconds']:.3f} seconds
+Average Fraud Detection Latency: {perf_stats['avg_fraud_detection_latency_seconds']:.3f} seconds
+"""
+        
+        ax.text(0.1, 0.9, report_text, fontsize=11, family='monospace',
+                verticalalignment='top', transform=ax.transAxes)
+        
+        pdf.savefig(fig)
+        plt.close()
+        
+        # Page 2: Visualizations
+        df = fetch_data()
+        if not df.empty:
+            df['is_fraud'] = df['fraud_type'].notnull()
+            
+            # Bar chart
+            fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(11, 8.5))
+            
+            fraud_by_cat = df[df['is_fraud']].groupby('merchant_category').size().reset_index(name='count')
+            sns.barplot(data=fraud_by_cat, x='merchant_category', y='count', palette='viridis', ax=ax1)
+            ax1.set_xticklabels(ax1.get_xticklabels(), rotation=45, ha='right')
+            ax1.set_title('Fraud Alerts by Merchant Category', fontsize=12, fontweight='bold')
+            ax1.set_ylabel('Number of Fraud Alerts')
+            
+            # Pie chart
+            if 'fraud_type' in df.columns and df['fraud_type'].notnull().any():
+                fraud_types = df[df['fraud_type'].notnull()]['fraud_type'].value_counts()
+                colors = sns.color_palette('pastel')[0:len(fraud_types)]
+                ax2.pie(fraud_types.values, labels=fraud_types.index, autopct='%1.1f%%',
+                       startangle=90, colors=colors)
+                ax2.set_title('Fraud Type Distribution', fontsize=12, fontweight='bold')
+            
+            plt.tight_layout()
+            pdf.savefig(fig)
+            plt.close()
+    
+    print(f"✓ PDF report saved to: {pdf_path}")
+    return pdf_path
+
+
 def generate():
     """Main function to generate all reports"""
     generate_console_report()
@@ -276,6 +398,15 @@ def generate():
     
     if '--json' in sys.argv or '-j' in sys.argv:
         save_report_json()
+    
+    if '--pdf' in sys.argv or '-p' in sys.argv:
+        generate_pdf_report()
+    
+    # Generate all formats if --all flag provided
+    if '--all' in sys.argv or '-a' in sys.argv:
+        generate_visualizations()
+        save_report_json()
+        generate_pdf_report()
 
 
 if __name__ == '__main__':
