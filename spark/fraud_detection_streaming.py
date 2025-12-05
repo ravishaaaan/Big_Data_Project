@@ -1,0 +1,116 @@
+import os
+import json
+from pyspark.sql import functions as F
+from pyspark.sql.types import StructType, StringType, DoubleType, TimestampType
+from spark.spark_config import get_spark_session
+
+KAFKA_BOOTSTRAP = os.getenv('KAFKA_BOOTSTRAP', 'localhost:9092')
+TOPIC = os.getenv('KAFKA_TOPIC', 'transactions')
+POSTGRES_URL = os.getenv('POSTGRES_URL', 'jdbc:postgresql://localhost:5432/fintech')
+POSTGRES_USER = os.getenv('POSTGRES_USER', 'postgres')
+POSTGRES_PASSWORD = os.getenv('POSTGRES_PASSWORD', 'postgres')
+CHECKPOINT = os.getenv('SPARK_CHECKPOINT_DIR', '/tmp/spark-checkpoints')
+
+schema = StructType() 
+schema = schema.add('transaction_id', StringType())
+schema = schema.add('user_id', StringType())
+schema = schema.add('timestamp', StringType())
+schema = schema.add('merchant_category', StringType())
+schema = schema.add('amount', DoubleType())
+schema = schema.add('location', StringType())
+
+
+def write_to_postgres(df, table_name: str, mode: str = 'append'):
+    df.write.format('jdbc') \
+      .option('url', POSTGRES_URL) \
+      .option('dbtable', table_name) \
+      .option('user', POSTGRES_USER) \
+      .option('password', POSTGRES_PASSWORD) \
+      .option('driver', 'org.postgresql.Driver') \
+      .mode(mode) \
+      .save()
+
+
+def main():
+    spark = get_spark_session('fraud-detection-stream')
+
+    raw = spark.readStream.format('kafka') \
+        .option('kafka.bootstrap.servers', KAFKA_BOOTSTRAP) \
+        .option('subscribe', TOPIC) \
+        .option('startingOffsets', 'latest') \
+        .load()
+
+    json_df = raw.selectExpr("CAST(value AS STRING) as json_str") \
+        .select(F.from_json('json_str', schema).alias('data')) \
+        .select('data.*') \
+        .withColumn('event_time', F.to_timestamp('timestamp')) \
+        .withColumn('processing_time', F.current_timestamp())
+
+    # High value detection
+    high_value = json_df.filter(F.col('amount') > 5000) \
+        .withColumn('fraud_type', F.lit('HIGH_VALUE')) \
+        .withColumn('detection_time', F.current_timestamp()) \
+        .withColumn('details', F.to_json(F.struct('*')))
+
+    # Impossible travel detection: windowed check for different locations per user
+    # We'll mark events where within a 10-minute window the same user has >1 distinct location
+    windowed = json_df.withWatermark('event_time', '2 minutes') \
+        .groupBy(
+            F.window('event_time', '10 minutes', '5 minutes'),
+            'user_id'
+        ).agg(F.collect_set('location').alias('locations'), F.max('processing_time').alias('last_processing')) \
+        .filter(F.size('locations') > 1) \
+        .select(F.col('user_id'), F.col('window'), F.col('locations'), F.col('last_processing')) \
+        .withColumn('fraud_type', F.lit('IMPOSSIBLE_TRAVEL')) \
+        .withColumn('detection_time', F.current_timestamp())
+
+    # For impossible travel we need to write detail rows for each transaction involved. For simplification
+    # we'll create alert rows with details containing the window and locations.
+    impossible_alerts = windowed.select(
+        F.concat(F.lit('user-'), F.col('user_id')).alias('transaction_id'),
+        'user_id',
+        F.lit(None).alias('transaction_ref'),
+        F.col('fraud_type'),
+        F.col('detection_time'),
+        F.to_json(F.struct('window', 'locations')).alias('details')
+    )
+
+    # Prepare high_value alerts to match fraud_alerts schema
+    high_value_alerts = high_value.select(
+        F.monotonically_increasing_id().cast('string').alias('alert_id'),
+        'user_id',
+        'transaction_id',
+        F.col('fraud_type'),
+        F.col('detection_time'),
+        'details'
+    )
+
+    # Write all incoming transactions to `transactions` table
+    transactions_out = json_df.select(
+        'transaction_id', 'user_id', 'event_time', 'merchant_category', 'amount', 'location', 'processing_time'
+    )
+
+    # Streams: write transactions and write alerts
+    transactions_query = transactions_out.writeStream \
+        .foreachBatch(lambda df, epoch_id: write_to_postgres(df, 'transactions')) \
+        .outputMode('append') \
+        .option('checkpointLocation', CHECKPOINT + '/transactions') \
+        .start()
+
+    high_value_query = high_value_alerts.writeStream \
+        .foreachBatch(lambda df, epoch_id: write_to_postgres(df, 'fraud_alerts')) \
+        .outputMode('append') \
+        .option('checkpointLocation', CHECKPOINT + '/high_value_alerts') \
+        .start()
+
+    impossible_query = impossible_alerts.writeStream \
+        .foreachBatch(lambda df, epoch_id: write_to_postgres(df, 'fraud_alerts')) \
+        .outputMode('append') \
+        .option('checkpointLocation', CHECKPOINT + '/impossible_alerts') \
+        .start()
+
+    spark.streams.awaitAnyTermination()
+
+
+if __name__ == '__main__':
+    main()
