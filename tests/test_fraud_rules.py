@@ -22,6 +22,7 @@ def test_impossible_travel_detection():
         Row(transaction_id='t2', user_id='u1', timestamp=now.isoformat(), merchant_category='Travel', amount=30.0, location='UK'),
     ]
     df = spark.createDataFrame(rows).withColumn('event_time', F.to_timestamp('timestamp'))
-    windowed = df.withWatermark('event_time', '2 minutes').groupBy(F.window('event_time', '10 minutes'), 'user_id').agg(F.collect_set('location').alias('locations')).filter(F.size('locations') > 1)
+    # For batch unit test we perform a simple windowed aggregation without watermarking
+    windowed = df.groupBy(F.window('event_time', '10 minutes'), 'user_id').agg(F.collect_set('location').alias('locations')).filter(F.size('locations') > 1)
     res = windowed.collect()
     assert len(res) == 1
