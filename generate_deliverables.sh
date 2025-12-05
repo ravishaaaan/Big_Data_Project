@@ -155,7 +155,28 @@ echo "Output will be saved to: $RECONCILIATION_REPORT"
 echo ""
 
 source .venv/bin/activate
-python << EOF > "$RECONCILIATION_REPORT" 2>&1
+python scripts/generate_reconciliation.py > "$RECONCILIATION_REPORT" 2>&1
+
+cat "$RECONCILIATION_REPORT"
+echo ""
+echo "✓ Reconciliation report generated"
+echo ""
+
+# Step 8: Generate Fraud by Merchant Category Report (CSV)
+echo "=========================================="
+echo "DELIVERABLE 5: Fraud by Merchant Category (CSV)"
+echo "=========================================="
+MERCHANT_CSV="$DELIVERABLES_DIR/5_fraud_by_merchant_category_${TIMESTAMP}.csv"
+echo "Generating fraud by merchant category report..."
+echo "Output will be saved to: $MERCHANT_CSV"
+echo ""
+
+source .venv/bin/activate
+python scripts/generate_merchant_csv.py "$MERCHANT_CSV"
+
+echo ""
+echo "✓ Fraud by merchant category report generated"
+echo ""
 import psycopg2
 from datetime import datetime
 
@@ -332,6 +353,27 @@ source .venv/bin/activate
 python reports/generate_report.py --pdf --output "$PDF_REPORT"
 
 echo ""
+echo "✓ Comprehensive fraud analysis PDF generated"
+echo ""
+
+# Step 10: Summary
+echo "=========================================="
+echo "DELIVERABLES GENERATION COMPLETED"
+echo "=========================================="
+echo ""
+echo "All deliverables have been generated in the '$DELIVERABLES_DIR' directory:"
+echo ""
+echo "1. Kafka Producer Output:          $PRODUCER_LOG"
+echo "2. Spark Streaming Output:         $SPARK_LOG"
+echo "3. Airflow DAG Output:             $AIRFLOW_LOG"
+echo "4. Reconciliation Report (TXT):    $RECONCILIATION_REPORT"
+echo "5. Fraud by Merchant (CSV):        $MERCHANT_CSV"
+echo "6. Comprehensive Analysis (PDF):   $PDF_REPORT"
+echo ""
+echo "=========================================="
+echo "Pipeline execution completed at $(date)"
+echo "=========================================="
+
 echo "✓ Comprehensive fraud analysis PDF generated"
 echo ""
 
