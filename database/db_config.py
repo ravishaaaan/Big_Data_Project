@@ -5,9 +5,9 @@ from psycopg2.extras import RealDictCursor
 
 DB_HOST = os.getenv('DB_HOST', 'localhost')
 DB_PORT = int(os.getenv('DB_PORT', 5432))
-DB_NAME = os.getenv('DB_NAME', 'fintech')
-DB_USER = os.getenv('DB_USER', 'postgres')
-DB_PASS = os.getenv('DB_PASS', 'postgres')
+DB_NAME = os.getenv('DB_NAME', 'fintech_db')
+DB_USER = os.getenv('DB_USER', 'fintech_user')
+DB_PASS = os.getenv('DB_PASS', 'fintech_pass')
 
 
 def get_connection():
@@ -22,19 +22,15 @@ def get_connection():
     return conn
 
 
-def query(sql: str, params: tuple = ()) -> list[Dict[str, Any]]:
-    conn = get_connection()
-    try:
-        with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute(sql, params)
-            try:
-                rows = cur.fetchall()
-            except psycopg2.ProgrammingError:
-                rows = []
-        conn.commit()
-        return rows
-    finally:
-        conn.close()
+def query(conn, sql: str, params: tuple = ()) -> list[Dict[str, Any]]:
+    """Execute a query using the provided connection."""
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        cur.execute(sql, params)
+        try:
+            rows = cur.fetchall()
+        except psycopg2.ProgrammingError:
+            rows = []
+    return rows
 
 
 def execute(sql: str, params: tuple = ()): 

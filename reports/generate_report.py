@@ -314,10 +314,11 @@ def save_report_json(filename='fraud_analysis_report.json'):
     return filepath
 
 
-def generate_pdf_report():
+def generate_pdf_report(pdf_path=None):
     """Generate comprehensive PDF report with visualizations"""
-    ts = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')
-    pdf_path = os.path.join(OUTPUT_DIR, f'fraud_analysis_report_{ts}.pdf')
+    if pdf_path is None:
+        ts = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')
+        pdf_path = os.path.join(OUTPUT_DIR, f'fraud_analysis_report_{ts}.pdf')
     
     # Get all statistics
     tx_stats = get_transaction_statistics()
