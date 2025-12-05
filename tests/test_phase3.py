@@ -65,13 +65,14 @@ def test_impossible_travel_detection_logic():
     """Test 3.3: Impossible travel detection logic works correctly"""
     spark = get_spark_session('test-impossible-travel')
     
-    # Create test data: user1 has transactions in USA and UK within 10 minutes
-    now = datetime.now(timezone.utc)
+    # Create test data: user1 has transactions in USA and UK within same 10-minute window
+    # Use a fixed base time to ensure both events fall in same window
+    base_time = datetime(2024, 1, 1, 10, 0, 0, tzinfo=timezone.utc)
     data = [
-        ('tx1', 'user1', (now - timedelta(minutes=8)).isoformat(), 'Electronics', 100.0, 'USA'),
-        ('tx2', 'user1', now.isoformat(), 'Travel', 200.0, 'UK'),
-        ('tx3', 'user2', (now - timedelta(minutes=5)).isoformat(), 'Groceries', 50.0, 'India'),
-        ('tx4', 'user2', now.isoformat(), 'Restaurant', 75.0, 'India'),  # Same location, not fraud
+        ('tx1', 'user1', base_time.isoformat(), 'Electronics', 100.0, 'USA'),
+        ('tx2', 'user1', (base_time + timedelta(minutes=5)).isoformat(), 'Travel', 200.0, 'UK'),
+        ('tx3', 'user2', base_time.isoformat(), 'Groceries', 50.0, 'India'),
+        ('tx4', 'user2', (base_time + timedelta(minutes=2)).isoformat(), 'Restaurant', 75.0, 'India'),  # Same location, not fraud
     ]
     
     schema = StructType() \
