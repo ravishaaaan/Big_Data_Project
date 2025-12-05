@@ -28,87 +28,22 @@ services:
     environment:
       POSTGRES_USER: fintech_user
       POSTGRES_PASSWORD: fintech_pass
-      POSTGRES_DB: fintech
+      POSTGRES_DB: fintech_db
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
 
-  spark-master:
-    image: bitnami/spark:3.5.0
-    container_name: spark-master
-    environment:
-      - SPARK_MODE=master
-      - SPARK_RPC_AUTHENTICATION_ENABLED=no
-      - SPARK_RPC_ENCRYPTION_ENABLED=no
-      - SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED=no
-      - SPARK_SSL_ENABLED=no
-    ports:
-      - "8080:8080"
-      - "7077:7077"
-    volumes:
-      - ./spark:/opt/spark-apps
-      - ./spark/jars:/opt/spark/jars
-
-  spark-worker:
-    image: bitnami/spark:3.5.0
-    container_name: spark-worker
-    depends_on:
-      - spark-master
-    environment:
-      - SPARK_MODE=worker
-      - SPARK_MASTER_URL=spark://spark-master:7077
-      - SPARK_WORKER_MEMORY=2G
-      - SPARK_WORKER_CORES=2
-      - SPARK_RPC_AUTHENTICATION_ENABLED=no
-      - SPARK_RPC_ENCRYPTION_ENABLED=no
-      - SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED=no
-      - SPARK_SSL_ENABLED=no
-    volumes:
-      - ./spark:/opt/spark-apps
-      - ./spark/jars:/opt/spark/jars
-
-  airflow-webserver:
-    image: apache/airflow:2.7.3-python3.11
-    container_name: airflow-webserver
-    depends_on:
-      - postgres
-    environment:
-      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
-      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://fintech_user:fintech_pass@postgres:5432/fintech
-      - AIRFLOW__CORE__FERNET_KEY=81HqDtbqAywKSOumSha3BhWNOdQ26slT6K0YaZeZyPs=
-      - AIRFLOW__CORE__LOAD_EXAMPLES=False
-      - AIRFLOW__WEBSERVER__EXPOSE_CONFIG=True
-    ports:
-      - "8081:8080"
-    volumes:
-      - ./airflow/dags:/opt/airflow/dags
-      - ./airflow/config:/opt/airflow/config
-      - airflow_logs:/opt/airflow/logs
-    command: bash -c "airflow db init && airflow users create --username admin --password admin --firstname Admin --lastname User --role Admin --email admin@example.com || true && airflow webserver"
-
-  airflow-scheduler:
-    image: apache/airflow:2.7.3-python3.11
-    container_name: airflow-scheduler
-    depends_on:
-      - postgres
-      - airflow-webserver
-    environment:
-      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
-      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://fintech_user:fintech_pass@postgres:5432/fintech
-      - AIRFLOW__CORE__FERNET_KEY=81HqDtbqAywKSOumSha3BhWNOdQ26slT6K0YaZeZyPs=
-      - AIRFLOW__CORE__LOAD_EXAMPLES=False
-    volumes:
-      - ./airflow/dags:/opt/airflow/dags
-      - ./airflow/config:/opt/airflow/config
-      - airflow_logs:/opt/airflow/logs
-    command: airflow scheduler
+  # Note: Spark and Airflow run locally via Python virtual environment
+  # They are not containerized to avoid image compatibility issues
+  # Use: python spark/fraud_detection_streaming.py (for Spark)
+  # Use: python -m airflow.dags.etl_reconciliation_dag (for Airflow tasks)
 
 volumes:
   postgres_data:
-  airflow_logs:
 
 networks:
   default:
     name: fintech-net
+

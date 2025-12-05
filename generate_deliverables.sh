@@ -18,8 +18,8 @@ echo ""
 # Create deliverables directory
 mkdir -p "$DELIVERABLES_DIR"
 
-# Step 1: Start Docker Services
-echo "Step 1: Starting Docker services..."
+# Step 1: Start Docker Services (Kafka, Zookeeper, PostgreSQL only)
+echo "Step 1: Starting Docker services (Kafka, Zookeeper, PostgreSQL)..."
 docker compose up -d
 echo "✓ Docker services started"
 echo ""
@@ -27,7 +27,7 @@ echo ""
 # Step 2: Wait for services to be ready
 echo "Step 2: Waiting for services to be ready..."
 echo -n "Waiting for PostgreSQL..."
-until docker exec fintech-fraud-detection-postgres-1 pg_isready -U fintech_user -d fintech_db > /dev/null 2>&1; do
+until docker exec fintech-postgres pg_isready -U fintech_user -d fintech_db > /dev/null 2>&1; do
     echo -n "."
     sleep 2
 done
