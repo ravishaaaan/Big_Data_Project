@@ -11,7 +11,7 @@ from spark.spark_config import get_spark_session
 
 KAFKA_BOOTSTRAP = os.getenv('KAFKA_BOOTSTRAP', 'localhost:9092')
 TOPIC = os.getenv('KAFKA_TOPIC', 'transactions')
-POSTGRES_URL = os.getenv('POSTGRES_URL', 'jdbc:postgresql://localhost:5432/fintech')
+POSTGRES_URL = os.getenv('POSTGRES_URL', 'jdbc:postgresql://localhost:5432/fintech_db')
 POSTGRES_USER = os.getenv('POSTGRES_USER', 'fintech_user')
 POSTGRES_PASSWORD = os.getenv('POSTGRES_PASSWORD', 'fintech_pass')
 CHECKPOINT = os.getenv('SPARK_CHECKPOINT_DIR', '/tmp/spark-checkpoints')
@@ -72,9 +72,8 @@ def main():
     # For impossible travel we need to write detail rows for each transaction involved. For simplification
     # we'll create alert rows with details containing the window and locations.
     impossible_alerts = windowed.select(
-        F.concat(F.lit('user-'), F.col('user_id')).alias('transaction_id'),
         'user_id',
-        F.lit(None).alias('transaction_ref'),
+        F.concat(F.lit('user-'), F.col('user_id')).alias('transaction_id'),
         F.col('fraud_type'),
         F.col('detection_time'),
         F.to_json(F.struct('window', 'locations')).alias('details')
