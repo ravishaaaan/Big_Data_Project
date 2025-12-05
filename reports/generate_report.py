@@ -7,6 +7,10 @@ It produces statistics on fraud detection, transaction patterns, and system perf
 
 import os
 import sys
+
+# Add parent directory to sys.path to allow imports
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 import pandas as pd
 import matplotlib
 matplotlib.use('Agg')  # Use non-interactive backend

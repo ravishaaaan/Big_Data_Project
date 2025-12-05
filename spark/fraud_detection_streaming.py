@@ -1,6 +1,7 @@
 import os
 import sys
 import json
+import time
 
 # Add parent directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -26,14 +27,63 @@ schema = schema.add('location', StringType())
 
 
 def write_to_postgres(df, table_name: str, mode: str = 'append'):
-    df.write.format('jdbc') \
-      .option('url', POSTGRES_URL) \
-      .option('dbtable', table_name) \
-      .option('user', POSTGRES_USER) \
-      .option('password', POSTGRES_PASSWORD) \
-      .option('driver', 'org.postgresql.Driver') \
-      .mode(mode) \
-      .save()
+    # For transactions and fraud_alerts, we need to handle duplicates
+    # Use a custom function to insert with ON CONFLICT
+    
+    if df.isEmpty():
+        return
+    
+    # Collect the data (only works for small batches in streaming)
+    rows = df.collect()
+    
+    if not rows:
+        return
+    
+    # Get column names
+    columns = df.columns
+    
+    # Build INSERT ... ON CONFLICT query
+    if table_name == 'transactions':
+        pk_column = 'transaction_id'
+    elif table_name == 'fraud_alerts':
+        pk_column = 'alert_id'
+    else:
+        pk_column = 'id'
+    
+    # Create connection and insert
+    import psycopg2
+    
+    conn = psycopg2.connect(
+        host='localhost',
+        port=5432,
+        database='fintech_db',
+        user=POSTGRES_USER,
+        password=POSTGRES_PASSWORD
+    )
+    
+    cursor = conn.cursor()
+    
+    # Build INSERT query with ON CONFLICT
+    placeholders = ','.join(['%s'] * len(columns))
+    columns_str = ','.join(columns)
+    
+    # For fraud_alerts, we don't have a primary key yet, so use regular insert
+    if table_name == 'fraud_alerts':
+        query = f"INSERT INTO {table_name} ({columns_str}) VALUES ({placeholders})"
+    else:
+        query = f"INSERT INTO {table_name} ({columns_str}) VALUES ({placeholders}) ON CONFLICT ({pk_column}) DO NOTHING"
+    
+    # Insert each row
+    for row in rows:
+        try:
+            cursor.execute(query, tuple(row))
+        except Exception as e:
+            print(f"Error inserting row: {e}")
+            # Continue with other rows
+    
+    conn.commit()
+    cursor.close()
+    conn.close()
 
 
 def main():
@@ -43,6 +93,7 @@ def main():
         .option('kafka.bootstrap.servers', KAFKA_BOOTSTRAP) \
         .option('subscribe', TOPIC) \
         .option('startingOffsets', 'latest') \
+        .option('failOnDataLoss', 'false') \
         .load()
 
     json_df = raw.selectExpr("CAST(value AS STRING) as json_str") \
