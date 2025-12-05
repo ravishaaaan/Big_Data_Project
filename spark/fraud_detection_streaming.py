@@ -1,5 +1,10 @@
 import os
+import sys
 import json
+
+# Add parent directory to path
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from pyspark.sql import functions as F
 from pyspark.sql.types import StructType, StringType, DoubleType, TimestampType
 from spark.spark_config import get_spark_session
@@ -7,8 +12,8 @@ from spark.spark_config import get_spark_session
 KAFKA_BOOTSTRAP = os.getenv('KAFKA_BOOTSTRAP', 'localhost:9092')
 TOPIC = os.getenv('KAFKA_TOPIC', 'transactions')
 POSTGRES_URL = os.getenv('POSTGRES_URL', 'jdbc:postgresql://localhost:5432/fintech')
-POSTGRES_USER = os.getenv('POSTGRES_USER', 'postgres')
-POSTGRES_PASSWORD = os.getenv('POSTGRES_PASSWORD', 'postgres')
+POSTGRES_USER = os.getenv('POSTGRES_USER', 'fintech_user')
+POSTGRES_PASSWORD = os.getenv('POSTGRES_PASSWORD', 'fintech_pass')
 CHECKPOINT = os.getenv('SPARK_CHECKPOINT_DIR', '/tmp/spark-checkpoints')
 
 schema = StructType() 

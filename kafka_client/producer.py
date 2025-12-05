@@ -2,12 +2,17 @@ import json
 import time
 import uuid
 import random
+import sys
+import os
 from typing import Dict
+
+# Add parent directory to path
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from faker import Faker
 from kafka import KafkaProducer
 from kafka.errors import KafkaError
 from datetime import datetime, timedelta, timezone
-import os
 from kafka_client.config import create_topics, producer_config
 
 TOPIC = os.getenv('KAFKA_TOPIC', 'transactions')
