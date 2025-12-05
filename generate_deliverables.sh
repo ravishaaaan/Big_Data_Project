@@ -63,7 +63,7 @@ echo ""
     echo "========================================" >> "$PRODUCER_LOG"
     echo "" >> "$PRODUCER_LOG"
     source .venv/bin/activate
-    python kafka_client/producer.py 2>&1 | tee -a "$PRODUCER_LOG" &
+    python -u kafka_client/producer.py 2>&1 | tee -a "$PRODUCER_LOG" &
     INNER_PID=$!
     sleep 60
     kill $INNER_PID 2>/dev/null || true
@@ -185,7 +185,24 @@ echo ""
 echo "✓ Comprehensive fraud analysis PDF generated"
 echo ""
 
-# Step 10: Summary
+# Step 10: Generate Comprehensive Analytical Report (PDF)
+echo "=========================================="
+echo "DELIVERABLE 7: Comprehensive Analytical Report (PDF)"
+echo "=========================================="
+ANALYTICAL_REPORT="$DELIVERABLES_DIR/7_comprehensive_analytical_report_${TIMESTAMP}.pdf"
+echo "Generating comprehensive analytical report with reconciliation, merchant, and fraud analysis..."
+echo "Output will be saved to: $ANALYTICAL_REPORT"
+echo ""
+
+source .venv/bin/activate
+cd "$BASE_DIR"
+python reports/generate_analytical_report.py --output "$ANALYTICAL_REPORT"
+
+echo ""
+echo "✓ Comprehensive analytical report generated"
+echo ""
+
+# Step 11: Summary
 echo "=========================================="
 echo "DELIVERABLES GENERATION COMPLETED"
 echo "=========================================="
@@ -198,6 +215,7 @@ echo "3. Airflow DAG Output:             $AIRFLOW_LOG"
 echo "4. Reconciliation Report (TXT):    $RECONCILIATION_REPORT"
 echo "5. Fraud by Merchant (CSV):        $MERCHANT_CSV"
 echo "6. Comprehensive Analysis (PDF):   $PDF_REPORT"
+echo "7. Analytical Report (PDF):        $ANALYTICAL_REPORT"
 echo ""
 echo "=========================================="
 echo "Pipeline execution completed at $(date)"

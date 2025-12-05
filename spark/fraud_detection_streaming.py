@@ -114,17 +114,20 @@ def main():
         .groupBy(
             F.window('event_time', '10 minutes', '5 minutes'),
             'user_id'
-        ).agg(F.collect_set('location').alias('locations'), F.max('processing_time').alias('last_processing')) \
+        ).agg(
+            F.collect_set('location').alias('locations'), 
+            F.max('processing_time').alias('last_processing'),
+            F.collect_list('transaction_id').alias('transaction_ids')
+        ) \
         .filter(F.size('locations') > 1) \
-        .select(F.col('user_id'), F.col('window'), F.col('locations'), F.col('last_processing')) \
+        .select(F.col('user_id'), F.col('window'), F.col('locations'), F.col('last_processing'), F.col('transaction_ids')) \
         .withColumn('fraud_type', F.lit('IMPOSSIBLE_TRAVEL')) \
         .withColumn('detection_time', F.current_timestamp())
 
-    # For impossible travel we need to write detail rows for each transaction involved. For simplification
-    # we'll create alert rows with details containing the window and locations.
+    # For impossible travel, explode transaction_ids to create one alert per transaction
     impossible_alerts = windowed.select(
         'user_id',
-        F.concat(F.lit('user-'), F.col('user_id')).alias('transaction_id'),
+        F.explode('transaction_ids').alias('transaction_id'),
         F.col('fraud_type'),
         F.col('detection_time'),
         F.to_json(F.struct('window', 'locations')).alias('details')
