@@ -20,11 +20,11 @@ This file tracks the phase-by-phase implementation and tests. Copy of the phase 
 - [x] Test basic Kafka message sending
 
 ## Phase 2: Fraud Detection Logic in Producer
-- [ ] Update `kafka_client/producer.py` with fraud generation logic
-- [ ] Implement impossible travel fraud (10% of transactions)
-- [ ] Implement high-value fraud (5% of transactions)
-- [ ] Add controlled fraud injection mechanism
-- [ ] Test fraud patterns generate correctly
+- [x] Update `kafka_client/producer.py` with fraud generation logic
+- [x] Implement impossible travel fraud (10% of transactions)
+- [x] Implement high-value fraud (5% of transactions)
+- [x] Add controlled fraud injection mechanism
+- [x] Test fraud patterns generate correctly
 
 ## Phase 3: Spark Streaming Fraud Detection
 - [x] Create `spark/fraud_detection_streaming.py` (basic)
