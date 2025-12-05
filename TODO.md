@@ -36,7 +36,7 @@ This file tracks the phase-by-phase implementation and tests. Copy of the phase 
 - [x] Write all transactions to PostgreSQL `transactions`
 - Status: **COMPLETE** (5 tests passed)
 
-## Phase 4: Airflow ETL & Reconciliation
+## Phase 4: Airflow ETL & Reconciliation ✅
 - [x] Create `airflow/dags/etl_reconciliation_dag.py`
 - [x] Implement extract_non_fraud_transactions task
 - [x] Implement transform_and_aggregate task
@@ -44,6 +44,7 @@ This file tracks the phase-by-phase implementation and tests. Copy of the phase 
 - [x] Implement generate_reconciliation_report task
 - [x] Implement fraud_by_category_analysis task
 - [x] Set schedule to run every 6 hours
+- Status: **COMPLETE** (7 tests passed)
 
 ## Phase 5: Final Integration & Documentation
 - [ ] Create `reports/generate_report.py` for analytics
