@@ -63,7 +63,10 @@ echo ""
     echo "========================================" >> "$PRODUCER_LOG"
     echo "" >> "$PRODUCER_LOG"
     source .venv/bin/activate
-    timeout 60 python kafka_client/producer.py 2>&1 | tee -a "$PRODUCER_LOG" || true
+    python kafka_client/producer.py 2>&1 | tee -a "$PRODUCER_LOG" &
+    INNER_PID=$!
+    sleep 60
+    kill $INNER_PID 2>/dev/null || true
 ) &
 PRODUCER_PID=$!
 
@@ -85,7 +88,10 @@ echo ""
     echo "========================================" >> "$SPARK_LOG"
     echo "" >> "$SPARK_LOG"
     source .venv/bin/activate
-    timeout 50 python spark/fraud_detection_streaming.py 2>&1 | tee -a "$SPARK_LOG" || true
+    python spark/fraud_detection_streaming.py 2>&1 | tee -a "$SPARK_LOG" &
+    INNER_PID=$!
+    sleep 50
+    kill $INNER_PID 2>/dev/null || true
 ) &
 SPARK_PID=$!
 
