@@ -159,6 +159,31 @@ Uses 10-minute tumbling windows to detect same user in multiple locations:
 
 ## Usage
 
+### Generate All Deliverables (Recommended)
+
+**Run the complete pipeline to generate all required deliverables:**
+
+```bash
+./generate_deliverables.sh
+```
+
+This automated pipeline will:
+1. ✓ Start all Docker services (Kafka, PostgreSQL, Spark, Airflow)
+2. ✓ Run Kafka Producer for 60 seconds and capture console output
+3. ✓ Run Spark Streaming for 50 seconds and capture console output
+4. ✓ Execute Airflow DAG and capture execution output
+5. ✓ Generate reconciliation report (TXT)
+6. ✓ Generate fraud by merchant category report (CSV)
+7. ✓ Generate comprehensive fraud analysis report (PDF)
+
+**All outputs saved to `deliverables/` directory:**
+- `1_kafka_producer_output_<timestamp>.txt`
+- `2_spark_streaming_output_<timestamp>.txt`
+- `3_airflow_dag_output_<timestamp>.txt`
+- `4_reconciliation_report_<timestamp>.txt`
+- `5_fraud_by_merchant_category_<timestamp>.csv`
+- `6_comprehensive_fraud_analysis_<timestamp>.pdf`
+
 ### Quick Start (Automated)
 
 Start everything with one command:

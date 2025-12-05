@@ -391,22 +391,35 @@ Average Fraud Detection Latency: {perf_stats['avg_fraud_detection_latency_second
 
 def generate():
     """Main function to generate all reports"""
+    import argparse
+    
+    parser = argparse.ArgumentParser(description="Generate fraud analysis reports")
+    parser.add_argument("--visualizations", "-v", action="store_true", 
+                       help="Generate visualization charts")
+    parser.add_argument("--json", "-j", action="store_true",
+                       help="Generate JSON report")
+    parser.add_argument("--pdf", "-p", action="store_true",
+                       help="Generate PDF report with visualizations")
+    parser.add_argument("--all", "-a", action="store_true",
+                       help="Generate all report formats")
+    parser.add_argument("--output", "-o", type=str,
+                       help="Custom output path for PDF report")
+    
+    args = parser.parse_args()
+    
     generate_console_report()
     
-    if '--visualizations' in sys.argv or '-v' in sys.argv:
+    if args.visualizations or args.all:
         generate_visualizations()
     
-    if '--json' in sys.argv or '-j' in sys.argv:
+    if args.json or args.all:
         save_report_json()
     
-    if '--pdf' in sys.argv or '-p' in sys.argv:
-        generate_pdf_report()
-    
-    # Generate all formats if --all flag provided
-    if '--all' in sys.argv or '-a' in sys.argv:
-        generate_visualizations()
-        save_report_json()
-        generate_pdf_report()
+    if args.pdf or args.all:
+        if args.output:
+            generate_pdf_report(pdf_path=args.output)
+        else:
+            generate_pdf_report()
 
 
 if __name__ == '__main__':
