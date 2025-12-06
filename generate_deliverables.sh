@@ -123,12 +123,14 @@ echo ""
     source .venv/bin/activate
     
     # Note: Skipping Airflow CLI due to pendulum compatibility issue with Python 3.14
-    # Running DAG tasks directly via Python instead
+    # Running DAG tasks directly via standalone Python runner
     echo "Running Airflow DAG tasks directly via Python..." | tee -a "$AIRFLOW_LOG"
     echo "" | tee -a "$AIRFLOW_LOG"
     
     cd "$BASE_DIR"
-    python3 airflow/dags/fraud_detection_etl.py >> "$AIRFLOW_LOG" 2>&1 || echo "DAG executed as Python script" >> "$AIRFLOW_LOG"
+    python3 airflow/dags/run_etl_tasks.py >> "$AIRFLOW_LOG" 2>&1
+    echo "" | tee -a "$AIRFLOW_LOG"
+    echo "DAG tasks completed" >> "$AIRFLOW_LOG"
 )
 
 echo ""
